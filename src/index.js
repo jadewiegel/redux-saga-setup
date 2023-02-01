@@ -5,6 +5,35 @@ import registerServiceWorker from './registerServiceWorker';
 import { createStore, combineReducers, applyMiddleware } from 'redux';
 import { Provider } from 'react-redux';
 import logger from 'redux-logger';
+import createSagaMiddleware from '@redux-saga/core';
+import { takeEvery, put } from 'redux-saga/effects';
+import axios from 'axios';
+
+const sagaMiddleware = createSagaMiddleware();
+
+function* watcherSaga() {
+    yield takeEvery('FETCH_ELEMENTS', fetchElements);
+    yield takeEvery('POST_ELEMENT', postElement);
+}
+
+function* postElement(action) {
+    try{
+        yield axios.post('/api/element', {newElement: action.payload});
+        yield put({type: 'FETCH_ELEMENTS'})
+    } catch (error) {
+        console.log('error posting element', error);
+    }
+}
+
+function* fetchElements() {
+    try{
+    const elementsReponse = yield axios.get('/api/element');
+    yield put({type: 'SET_ELEMENTS', payload: elementsReponse.data})
+    } catch (error) {
+        console.log('error fetching elements', error);
+    }
+}
+
 
 const firstReducer = (state = 0, action) => {
     if (action.type === 'BUTTON_ONE') {
@@ -45,9 +74,10 @@ const storeInstance = createStore(
         secondReducer,
         elementListReducer,
     }),
-    applyMiddleware(logger),
+    applyMiddleware(sagaMiddleware, logger),
 );
 
+sagaMiddleware.run(watcherSaga);
 
 ReactDOM.render(<Provider store={storeInstance}><App/></Provider>, document.getElementById('root'));
 registerServiceWorker();
